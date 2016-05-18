@@ -2,7 +2,6 @@
 #include <iomanip>
 #include <array>
 #include <bitset>
-#include <fstream>
 
 struct sudoku_cell{
     using cand = std::bitset<9>;
@@ -11,6 +10,18 @@ struct sudoku_cell{
     std::array<cand,81> candidates;
     std::array<cand,9> reduced_row;
     std::array<cand,9> reduced_column;
+
+    constexpr inline unsigned rc_to_index(const unsigned row, const unsigned column){
+        return 9*row+column;
+    }
+
+    constexpr inline unsigned index_to_row(const unsigned index){
+        return index/9;
+    }
+
+    constexpr inline unsigned index_to_column(const unsigned index){
+        return index%9;
+    }
 
     cand cand_in_row(const unsigned index){
         cand ret;
