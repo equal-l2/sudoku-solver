@@ -90,14 +90,14 @@ struct sudoku_cell{
         return changed;
     }
 
-    bool solve_each_3x3(const unsigned row, const unsigned col){
+    bool solve_each_3x3(const unsigned row_3x3, const unsigned col_3x3){
         bool changed = false;
         for(unsigned i=0;i<9;++i){
             bool found = false;
             unsigned idx = 0;
-            for(unsigned j=3*row;j<3*row+3;++j){
-                for(unsigned k=3*col;k<3*col+3;++k){
-                    auto idx_ = 9*j+k;
+            for(unsigned j=3*row_3x3;j<3*row_3x3+3;++j){
+                for(unsigned k=3*col_3x3;k<3*col_3x3+3;++k){
+                    auto idx_ = rc_to_idx(j,k);
                     if(cands[idx_][i]){
                         if(found) goto LEND;
                         found = true;
@@ -125,26 +125,27 @@ struct sudoku_cell{
         return changed;
     }
 
-    bool reduce_line_3x3(const unsigned row, const unsigned col){
+    bool reduce_line_3x3(const unsigned row_3x3, const unsigned col_3x3){
         bool changed = false;
         for(unsigned i=0;i<9;++i){
-            for(unsigned j=3*row;j<3*row+3;++j){
-                auto idx = 9*j+3*col;
+            for(unsigned j=3*row_3x3;j<3*row_3x3+3;++j){
                 if(
                     !reduced_row[j][i] &&
                     (
-                        (cands[idx][i] && (cands[idx+1][i] || cands[idx+2][i])) || (cands[idx+1][i] && cands[idx+2][i])
+                        (cands[rc_to_idx(j,3*col_3x3)][i] && (cands[rc_to_idx(j,3*col_3x3+1)][i] || cands[rc_to_idx(j,3*col_3x3+2)][i])) 
+                        ||
+                        (cands[rc_to_idx(j,3*col_3x3+1)][i] && cands[rc_to_idx(j,3*col_3x3+2)][i])
                     )
                 ){
-                    for(unsigned k=3*row;k<3*row+3;++k){
+                    for(unsigned k=3*row_3x3;k<3*row_3x3+3;++k){
                         if(j != k){
-                            for(unsigned l=3*col;l<3*col+3;++l){
-                                if(cands[9*k+l][i]) goto LEND;
+                            for(unsigned l=3*col_3x3;l<3*col_3x3+3;++l){
+                                if(cands[rc_to_idx(k,l)][i]) goto LEND;
                             }
                         }
                     }
-                    for(unsigned k=9*j;k<9*j+9;++k){
-                        if(k < 9*j+3*col || k >= 9*j+3*col+3) cands[k].reset(i);
+                    for(unsigned k=0;k<9;++k){
+                        if(k/3*3 != 3*col_3x3) cands[rc_to_idx(j,k)].reset(i);
                     }
                     reduced_row[j].set(i);
                     changed = true;
@@ -152,22 +153,22 @@ struct sudoku_cell{
                 }
             }
 
-            for(unsigned j=3*col;j<3*col+3;++j){
-                auto idx = 27*row+j;
+            for(unsigned j=3*col_3x3;j<3*col_3x3+3;++j){
                 if(
                     !reduced_col[j][i] &&
                     (
-                        (cands[idx][i] && (cands[idx+9][i] || cands[idx+18][i])) || (cands[idx+9][i] && cands[idx+18][i])
-                    )
+                        (cands[rc_to_idx(3*row_3x3,j)][i] && (cands[rc_to_idx(3*row_3x3+1,j)][i] || cands[rc_to_idx(3*row_3x3+2,j)][i])) 
+                        ||
+                        (cands[rc_to_idx(3*row_3x3+1,j)][i] && cands[rc_to_idx(3*row_3x3+2,j)][i])                    )
                 ){
-                    for(unsigned k=3*row;k<3*row+3;++k){
-                        for(unsigned l=col*3;l<col*3+3;++l){
+                    for(unsigned k=3*row_3x3;k<3*row_3x3+3;++k){
+                        for(unsigned l=col_3x3*3;l<col_3x3*3+3;++l){
                             if(j == l) continue;
-                            if(cands[9*k+l][i]) goto LEND;
+                            if(cands[rc_to_idx(k,l)][i]) goto LEND;
                         }
                     }
-                    for(unsigned k=j%9;k<81;k+=9){
-                        if(k < j || k > j+18) cands[k].reset(i);
+                    for(unsigned k=0;k<9;++k){
+                        if(k/3*3 != 3*row_3x3) cands[rc_to_idx(k,j)].reset(i);
                     }
                     reduced_col[j].set(i);
                     changed = true;
@@ -180,26 +181,24 @@ struct sudoku_cell{
         return changed;
     }
 
-    numset gen_cand(unsigned idx){
-        return (cells[idx] != 0 ? numset().reset() : (cand_in_row(idx) & cand_in_col(idx) & cand_in_3x3(idx)));
-    }
-
     void gen_cands(){
-        for(unsigned i=0; i<81;++i) cands[i] = gen_cand(i);
+        for(unsigned i=0; i<81;++i) if(cells[i] == 0) cands[i] = (cand_in_row(i) & cand_in_col(i) & cand_in_3x3(i));
     }
 
     void rebuild_cand(unsigned idx){
         const unsigned val = cells[idx];
-        const unsigned row = idx/9;
-        const unsigned col = idx%9;
+        const unsigned row = idx_to_row(idx);
+        const unsigned col = idx_to_col(idx);
         const unsigned row_begin = row/3*3;
         const unsigned col_begin = col/3*3;
         cands[idx].reset();
-        for(unsigned i=row*9;i<row*9+9;++i) cands[i].reset(val-1);
-        for(unsigned i=col;i<81;i+=9)    cands[i].reset(val-1);
+        for(unsigned i=0;i<9;++i){
+            cands[rc_to_idx(row,i)].reset(val-1);
+            cands[rc_to_idx(i,col)].reset(val-1);
+        }
         for(unsigned i=row_begin;i<row_begin+3;++i){
             for(unsigned j=col_begin;j<col_begin+3;++j){
-                cands[9*i+j].reset(val-1);
+                cands[rc_to_idx(i,j)].reset(val-1);
             }
         }
     }
