@@ -26,29 +26,27 @@ struct sudoku_cell{
     numset cand_in_row(const unsigned idx){
         numset ret;
         ret.set();
-        const unsigned row = idx/9;
-        for(unsigned i=row*9;i<row*9+9;++i) if(cells[i] != 0) ret.reset(cells[i]-1);
+        const unsigned row = idx_to_row(idx);
+        for(unsigned i=0;i<9;++i) if(cells[rc_to_idx(row,i)] != 0) ret.reset(cells[rc_to_idx(row,i)]-1);
         return ret;
     }
 
     numset cand_in_col(const unsigned idx){
         numset ret;
         ret.set();
-        const unsigned col = idx%9;
-        for(unsigned i=col;i<81;i+=9) if(cells[i] != 0) ret.reset(cells[i]-1);
+        const unsigned col = idx_to_col(idx);
+        for(unsigned i=0;i<9;++i) if(cells[rc_to_idx(i,col)] != 0) ret.reset(cells[rc_to_idx(i,col)]-1);
         return ret;
     }
 
     numset cand_in_3x3(const unsigned idx){
         numset ret;
         ret.set();
-        const unsigned row = idx/9;
-        const unsigned col = idx%9;
-        const unsigned row_begin = row/3*3;
-        const unsigned col_begin = col/3*3;
+        const unsigned row_begin = idx_to_row(idx)/3*3;
+        const unsigned col_begin = idx_to_col(idx)/3*3;
         for(unsigned i=row_begin;i<row_begin+3;++i){
             for(unsigned j=col_begin;j<col_begin+3;++j){
-                if(cells[9*i+j] != 0) ret.reset(cells[9*i+j]-1);
+                if(cells[rc_to_idx(i,j)] != 0) ret.reset(cells[rc_to_idx(i,j)]-1);
             }
         }
 
@@ -65,10 +63,10 @@ struct sudoku_cell{
         BEGIN:
             if(reduce_line())           goto BEGIN;
             if(solve_3x3())             goto BEGIN;
-            if(solve_one_candidate())   goto BEGIN;
+            if(solve_one_cand())   goto BEGIN;
     }
 
-    bool solve_one_candidate(){ // solve cells which has only one candidate
+    bool solve_one_cand(){ // solve cells which has only one candidate
         bool changed = false;
         for(unsigned i=0;i<81;++i){
             if(cells[i] == 0){
