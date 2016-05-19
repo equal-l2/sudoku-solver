@@ -4,50 +4,50 @@
 #include <bitset>
 
 struct sudoku_cell{
-    using cand = std::bitset<9>;
+    using numset = std::bitset<9>;
     sudoku_cell():cells{}{}
     std::array<unsigned,81> cells;
-    std::array<cand,81> candidates;
-    std::array<cand,9> reduced_row;
-    std::array<cand,9> reduced_column;
+    std::array<numset,81> cands;
+    std::array<numset,9> reduced_row;
+    std::array<numset,9> reduced_col;
 
-    constexpr inline unsigned rc_to_index(const unsigned row, const unsigned column){
-        return 9*row+column;
+    constexpr inline unsigned rc_to_index(const unsigned row, const unsigned col){
+        return 9*row+col;
     }
 
     constexpr inline unsigned index_to_row(const unsigned index){
         return index/9;
     }
 
-    constexpr inline unsigned index_to_column(const unsigned index){
+    constexpr inline unsigned index_to_col(const unsigned index){
         return index%9;
     }
 
-    cand cand_in_row(const unsigned index){
-        cand ret;
+    numset cand_in_row(const unsigned index){
+        numset ret;
         ret.set();
         const unsigned row = index/9;
         for(unsigned i=row*9;i<row*9+9;++i) if(cells[i] != 0) ret.reset(cells[i]-1);
         return ret;
     }
 
-    cand cand_in_column(const unsigned index){
-        cand ret;
+    numset cand_in_col(const unsigned index){
+        numset ret;
         ret.set();
-        const unsigned column = index%9;
-        for(unsigned i=column;i<81;i+=9) if(cells[i] != 0) ret.reset(cells[i]-1);
+        const unsigned col = index%9;
+        for(unsigned i=col;i<81;i+=9) if(cells[i] != 0) ret.reset(cells[i]-1);
         return ret;
     }
 
-    cand cand_in_3x3(const unsigned index){
-        cand ret;
+    numset cand_in_3x3(const unsigned index){
+        numset ret;
         ret.set();
         const unsigned row = index/9;
-        const unsigned column = index%9;
+        const unsigned col = index%9;
         const unsigned row_begin = row/3*3;
-        const unsigned column_begin = column/3*3;
+        const unsigned col_begin = col/3*3;
         for(unsigned i=row_begin;i<row_begin+3;++i){
-            for(unsigned j=column_begin;j<column_begin+3;++j){
+            for(unsigned j=col_begin;j<col_begin+3;++j){
                 if(cells[9*i+j] != 0) ret.reset(cells[9*i+j]-1);
             }
         }
@@ -55,7 +55,7 @@ struct sudoku_cell{
         return ret;
     }
 
-    inline unsigned num_of_onbit(const cand& e){ // return least canding number indicated in e
+    inline unsigned num_of_onbit(const numset& e){ // return least canding number indicated in e
         for(unsigned i=0;i<9;++i) if(e[i]) return i+1;
         return 0; // unreachable
     }
@@ -72,8 +72,8 @@ struct sudoku_cell{
         bool changed = false;
         for(unsigned i=0;i<81;++i){
             if(cells[i] == 0){
-                if(candidates[i].count() == 1){
-                    cells[i] = num_of_onbit(candidates[i]);
+                if(cands[i].count() == 1){
+                    cells[i] = num_of_onbit(cands[i]);
                     rebuild_cand(i);
                     changed = true;
                 }
@@ -92,15 +92,15 @@ struct sudoku_cell{
         return changed;
     }
 
-    bool solve_each_3x3(const unsigned row, const unsigned column){
+    bool solve_each_3x3(const unsigned row, const unsigned col){
         bool changed = false;
         for(unsigned i=0;i<9;++i){
             bool found = false;
             unsigned index = 0;
             for(unsigned j=3*row;j<3*row+3;++j){
-                for(unsigned k=3*column;k<3*column+3;++k){
+                for(unsigned k=3*col;k<3*col+3;++k){
                     auto index_ = 9*j+k;
-                    if(candidates[index_][i]){
+                    if(cands[index_][i]){
                         if(found) goto LEND;
                         found = true;
                         index = index_;
@@ -127,26 +127,26 @@ struct sudoku_cell{
         return changed;
     }
 
-    bool reduce_line_3x3(const unsigned row, const unsigned column){
+    bool reduce_line_3x3(const unsigned row, const unsigned col){
         bool changed = false;
         for(unsigned i=0;i<9;++i){
             for(unsigned j=3*row;j<3*row+3;++j){
-                auto index = 9*j+3*column;
+                auto index = 9*j+3*col;
                 if(
                     !reduced_row[j][i] &&
                     (
-                        (candidates[index][i] && (candidates[index+1][i] || candidates[index+2][i])) || (candidates[index+1][i] && candidates[index+2][i])
+                        (cands[index][i] && (cands[index+1][i] || cands[index+2][i])) || (cands[index+1][i] && cands[index+2][i])
                     )
                 ){
                     for(unsigned k=3*row;k<3*row+3;++k){
                         if(j != k){
-                            for(unsigned l=3*column;l<3*column+3;++l){
-                                if(candidates[9*k+l][i]) goto LEND;
+                            for(unsigned l=3*col;l<3*col+3;++l){
+                                if(cands[9*k+l][i]) goto LEND;
                             }
                         }
                     }
                     for(unsigned k=9*j;k<9*j+9;++k){
-                        if(k < 9*j+3*column || k >= 9*j+3*column+3) candidates[k].reset(i);
+                        if(k < 9*j+3*col || k >= 9*j+3*col+3) cands[k].reset(i);
                     }
                     reduced_row[j].set(i);
                     changed = true;
@@ -154,24 +154,24 @@ struct sudoku_cell{
                 }
             }
 
-            for(unsigned j=3*column;j<3*column+3;++j){
+            for(unsigned j=3*col;j<3*col+3;++j){
                 auto index = 27*row+j;
                 if(
-                    !reduced_column[j][i] &&
+                    !reduced_col[j][i] &&
                     (
-                        (candidates[index][i] && (candidates[index+9][i] || candidates[index+18][i])) || (candidates[index+9][i] && candidates[index+18][i])
+                        (cands[index][i] && (cands[index+9][i] || cands[index+18][i])) || (cands[index+9][i] && cands[index+18][i])
                     )
                 ){
                     for(unsigned k=3*row;k<3*row+3;++k){
-                        for(unsigned l=column*3;l<column*3+3;++l){
+                        for(unsigned l=col*3;l<col*3+3;++l){
                             if(j == l) continue;
-                            if(candidates[9*k+l][i]) goto LEND;
+                            if(cands[9*k+l][i]) goto LEND;
                         }
                     }
                     for(unsigned k=j%9;k<81;k+=9){
-                        if(k < j || k > j+18) candidates[k].reset(i);
+                        if(k < j || k > j+18) cands[k].reset(i);
                     }
-                    reduced_column[j].set(i);
+                    reduced_col[j].set(i);
                     changed = true;
                     goto LEND;
                 }
@@ -182,26 +182,26 @@ struct sudoku_cell{
         return changed;
     }
 
-    cand gen_cand(unsigned index){
-        return (cells[index] != 0 ? cand().reset() : (cand_in_row(index) & cand_in_column(index) & cand_in_3x3(index))); 
+    numset gen_cand(unsigned index){
+        return (cells[index] != 0 ? numset().reset() : (cand_in_row(index) & cand_in_col(index) & cand_in_3x3(index))); 
     }
 
     void gen_cands(){
-        for(unsigned i=0; i<81;++i) candidates[i] = gen_cand(i);
+        for(unsigned i=0; i<81;++i) cands[i] = gen_cand(i);
     }
 
     void rebuild_cand(unsigned index){
         const unsigned val = cells[index];
         const unsigned row = index/9;
-        const unsigned column = index%9;
+        const unsigned col = index%9;
         const unsigned row_begin = row/3*3;
-        const unsigned column_begin = column/3*3;
-        candidates[index].reset();
-        for(unsigned i=row*9;i<row*9+9;++i) candidates[i].reset(val-1);
-        for(unsigned i=column;i<81;i+=9)    candidates[i].reset(val-1);
+        const unsigned col_begin = col/3*3;
+        cands[index].reset();
+        for(unsigned i=row*9;i<row*9+9;++i) cands[i].reset(val-1);
+        for(unsigned i=col;i<81;i+=9)    cands[i].reset(val-1);
         for(unsigned i=row_begin;i<row_begin+3;++i){
-            for(unsigned j=column_begin;j<column_begin+3;++j){
-                candidates[9*i+j].reset(val-1);
+            for(unsigned j=col_begin;j<col_begin+3;++j){
+                cands[9*i+j].reset(val-1);
             }
         }
     }
