@@ -11,39 +11,39 @@ struct sudoku_cell{
     std::array<numset,9> reduced_row;
     std::array<numset,9> reduced_col;
 
-    constexpr inline unsigned rc_to_index(const unsigned row, const unsigned col){
+    inline unsigned rc_to_idx(const unsigned row, const unsigned col){
         return 9*row+col;
     }
 
-    constexpr inline unsigned index_to_row(const unsigned index){
-        return index/9;
+    inline unsigned idx_to_row(const unsigned idx){
+        return idx/9;
     }
 
-    constexpr inline unsigned index_to_col(const unsigned index){
-        return index%9;
+    inline unsigned idx_to_col(const unsigned idx){
+        return idx%9;
     }
 
-    numset cand_in_row(const unsigned index){
+    numset cand_in_row(const unsigned idx){
         numset ret;
         ret.set();
-        const unsigned row = index/9;
+        const unsigned row = idx/9;
         for(unsigned i=row*9;i<row*9+9;++i) if(cells[i] != 0) ret.reset(cells[i]-1);
         return ret;
     }
 
-    numset cand_in_col(const unsigned index){
+    numset cand_in_col(const unsigned idx){
         numset ret;
         ret.set();
-        const unsigned col = index%9;
+        const unsigned col = idx%9;
         for(unsigned i=col;i<81;i+=9) if(cells[i] != 0) ret.reset(cells[i]-1);
         return ret;
     }
 
-    numset cand_in_3x3(const unsigned index){
+    numset cand_in_3x3(const unsigned idx){
         numset ret;
         ret.set();
-        const unsigned row = index/9;
-        const unsigned col = index%9;
+        const unsigned row = idx/9;
+        const unsigned col = idx%9;
         const unsigned row_begin = row/3*3;
         const unsigned col_begin = col/3*3;
         for(unsigned i=row_begin;i<row_begin+3;++i){
@@ -96,20 +96,20 @@ struct sudoku_cell{
         bool changed = false;
         for(unsigned i=0;i<9;++i){
             bool found = false;
-            unsigned index = 0;
+            unsigned idx = 0;
             for(unsigned j=3*row;j<3*row+3;++j){
                 for(unsigned k=3*col;k<3*col+3;++k){
-                    auto index_ = 9*j+k;
-                    if(cands[index_][i]){
+                    auto idx_ = 9*j+k;
+                    if(cands[idx_][i]){
                         if(found) goto LEND;
                         found = true;
-                        index = index_;
+                        idx = idx_;
                     }
                 }
             }
-            if(cells[index] == 0 && found){
-                cells[index] = i+1;
-                rebuild_cand(index);
+            if(cells[idx] == 0 && found){
+                cells[idx] = i+1;
+                rebuild_cand(idx);
                 changed = true;
             }
             LEND: ;
@@ -131,11 +131,11 @@ struct sudoku_cell{
         bool changed = false;
         for(unsigned i=0;i<9;++i){
             for(unsigned j=3*row;j<3*row+3;++j){
-                auto index = 9*j+3*col;
+                auto idx = 9*j+3*col;
                 if(
                     !reduced_row[j][i] &&
                     (
-                        (cands[index][i] && (cands[index+1][i] || cands[index+2][i])) || (cands[index+1][i] && cands[index+2][i])
+                        (cands[idx][i] && (cands[idx+1][i] || cands[idx+2][i])) || (cands[idx+1][i] && cands[idx+2][i])
                     )
                 ){
                     for(unsigned k=3*row;k<3*row+3;++k){
@@ -155,11 +155,11 @@ struct sudoku_cell{
             }
 
             for(unsigned j=3*col;j<3*col+3;++j){
-                auto index = 27*row+j;
+                auto idx = 27*row+j;
                 if(
                     !reduced_col[j][i] &&
                     (
-                        (cands[index][i] && (cands[index+9][i] || cands[index+18][i])) || (cands[index+9][i] && cands[index+18][i])
+                        (cands[idx][i] && (cands[idx+9][i] || cands[idx+18][i])) || (cands[idx+9][i] && cands[idx+18][i])
                     )
                 ){
                     for(unsigned k=3*row;k<3*row+3;++k){
@@ -182,21 +182,21 @@ struct sudoku_cell{
         return changed;
     }
 
-    numset gen_cand(unsigned index){
-        return (cells[index] != 0 ? numset().reset() : (cand_in_row(index) & cand_in_col(index) & cand_in_3x3(index))); 
+    numset gen_cand(unsigned idx){
+        return (cells[idx] != 0 ? numset().reset() : (cand_in_row(idx) & cand_in_col(idx) & cand_in_3x3(idx)));
     }
 
     void gen_cands(){
         for(unsigned i=0; i<81;++i) cands[i] = gen_cand(i);
     }
 
-    void rebuild_cand(unsigned index){
-        const unsigned val = cells[index];
-        const unsigned row = index/9;
-        const unsigned col = index%9;
+    void rebuild_cand(unsigned idx){
+        const unsigned val = cells[idx];
+        const unsigned row = idx/9;
+        const unsigned col = idx%9;
         const unsigned row_begin = row/3*3;
         const unsigned col_begin = col/3*3;
-        cands[index].reset();
+        cands[idx].reset();
         for(unsigned i=row*9;i<row*9+9;++i) cands[i].reset(val-1);
         for(unsigned i=col;i<81;i+=9)    cands[i].reset(val-1);
         for(unsigned i=row_begin;i<row_begin+3;++i){
