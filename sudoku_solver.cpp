@@ -61,9 +61,9 @@ struct sudoku_cell{
     void solve(){
         gen_cands();
         BEGIN:
-            if(reduce_line())           goto BEGIN;
+            if(reduce_nearby_pair())    goto BEGIN;
             if(solve_3x3())             goto BEGIN;
-            if(solve_one_cand())   goto BEGIN;
+            if(solve_one_cand())        goto BEGIN;
     }
 
     bool solve_one_cand(){ // solve cells which has only one candidate
@@ -115,17 +115,17 @@ struct sudoku_cell{
         return changed;
     }
 
-    bool reduce_line(){
+    bool reduce_nearby_pair(){
         bool changed = false;
         for(unsigned i=0;i<3;++i){
             for(unsigned j=0;j<3;++j){
-                if(reduce_line_3x3(i,j)) changed = true;
+                if(reduce_nearby_pair_3x3(i,j)) changed = true;
             }
         }
         return changed;
     }
 
-    bool reduce_line_3x3(const unsigned row_3x3, const unsigned col_3x3){
+    bool reduce_nearby_pair_3x3(const unsigned row_3x3, const unsigned col_3x3){
         bool changed = false;
         for(unsigned i=0;i<9;++i){
             for(unsigned j=3*row_3x3;j<3*row_3x3+3;++j){
