@@ -66,7 +66,8 @@ struct sudoku_cell{
             if(solve_one_cand())        goto BEGIN;
     }
 
-    bool solve_one_cand(){ // solve cells which has only one candidate
+    bool solve_one_cand(){
+    	// solve cells which have only one candidate
         bool changed = false;
         for(unsigned i=0;i<81;++i){
             if(cells[i] == 0){
@@ -81,6 +82,7 @@ struct sudoku_cell{
     }
 
     bool solve_3x3(){
+    	// solve cells in 3x3 block
         bool changed = false;
         for(unsigned i=0;i<3;++i){
             for(unsigned j=0;j<3;++j){
@@ -182,10 +184,12 @@ struct sudoku_cell{
     }
 
     void gen_cands(){
+    	// generate candidates for each cells
         for(unsigned i=0; i<81;++i) if(cells[i] == 0) cands[i] = (cand_in_row(i) & cand_in_col(i) & cand_in_3x3(i));
     }
 
     void rebuild_cand(unsigned idx){
+    	// modify candidates when value of any cells has changed
         const unsigned val = cells[idx];
         const unsigned row = idx_to_row(idx);
         const unsigned col = idx_to_col(idx);
