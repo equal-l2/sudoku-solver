@@ -63,6 +63,8 @@ struct sudoku_cell{
         BEGIN:
             if(reduce_nearby_pair())    goto BEGIN;
             if(solve_3x3())             goto BEGIN;
+	    if(solve_row())		goto BEGIN;
+	    if(solve_col())		goto BEGIN;
             if(solve_one_cand())        goto BEGIN;
     }
 
@@ -109,13 +111,49 @@ struct sudoku_cell{
             }
             if(cells[idx] == 0 && found){
                 cells[idx] = i+1;
-                rebuild_cand(idx);
+		rebuild_cand(idx);
                 changed = true;
             }
             LEND: ;
         }
         return changed;
     }
+
+    bool solve_row(){
+	//solve cells in 3x3 block
+	bool changed = false;
+	for(unsigned i=0;i<9;++i){
+	    if(solve_each_row(i)) changed = true;
+	}
+	return changed;
+    }
+
+    bool solve_each_row(const unsigned row){
+        bool changed = false;
+        for(unsigned i=0;i<9;++i){
+            bool found = false;
+            unsigned idx = 0;
+            for(unsigned j=0;j<27;++j){
+		if(cands[rc_to_idx(row,j)][i]){
+		    if(found){
+			found = false;
+			break;
+		    }
+		    else{
+			found = true;
+			idx = rc_to_idx(row,j);
+		    }
+		}
+            }
+            if(cells[idx] == 0 && found){
+                cells[idx] = i+1;
+                rebuild_cand(idx);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
 
     bool reduce_nearby_pair(){
         bool changed = false;
@@ -125,7 +163,43 @@ struct sudoku_cell{
             }
         }
         return changed;
+    }    
+    
+    bool solve_col(){
+	//solve cells in 3x3 block
+	bool changed = false;
+	for(unsigned i=0;i<9;++i){
+	    if(solve_each_col(i)) changed = true;
+	}
+	return changed;
     }
+
+    bool solve_each_col(const unsigned col){
+        bool changed = false;
+        for(unsigned i=0;i<9;++i){
+            bool found = false;
+            unsigned idx = 0;
+            for(unsigned j=0;j<27;++j){
+		if(cands[rc_to_idx(j,col)][i]){
+		    if(found){
+			found = false;
+			break;
+		    }
+		    else{
+			found = true;
+			idx = rc_to_idx(j,col);
+		    }
+		}
+            }
+            if(cells[idx] == 0 && found){
+                cells[idx] = i+1;
+                rebuild_cand(idx);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
 
     bool reduce_nearby_pair_3x3(const unsigned row_3x3, const unsigned col_3x3){
         bool changed = false;
