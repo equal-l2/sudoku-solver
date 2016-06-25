@@ -2,11 +2,52 @@
 #include <iomanip>
 #include <array>
 #include <bitset>
+#include <functional>
 
-struct sudoku_cell{
-    using numset = std::bitset<9>;
+class sudoku_cell{
+    public:
+
     sudoku_cell():cells{}{}
+    void solve(){
+        gen_cands();
+        BEGIN: ;
+            if(reduce_nearby_pair())      goto BEGIN;
+            if(solve_3x3())                 goto BEGIN;
+            if(solve_row())                 goto BEGIN;
+            if(solve_col())                 goto BEGIN;
+            if(solve_one_cand())          goto BEGIN;
+    }
+
     std::array<unsigned,81> cells;
+
+    class pt{
+        using self=pt;
+        public:
+        template <typename T>
+        pt(unsigned offset, T func, const sudoku_cell& s):idx(offset),inc_val_func(func),ref(s){}
+
+        unsigned get_idx(){return idx;}
+
+        self& operator++(){
+            idx += inc_val_func(idx);
+            return *this;
+        }
+
+        self operator++(int){
+            auto ret = *this;
+            ++(*this);
+            return ret;
+        }
+        protected:
+        unsigned idx;
+        const std::function<unsigned(unsigned)> inc_val_func;
+        const sudoku_cell& ref;
+    };
+
+    private:
+
+    using numset = std::bitset<9>;
+
     std::array<numset,81> cands;
     std::array<numset,9> reduced_row;
     std::array<numset,9> reduced_col;
@@ -21,6 +62,18 @@ struct sudoku_cell{
 
     inline unsigned idx_to_col(const unsigned idx){
         return idx%9;
+    }
+
+    inline pt ref_to_3x3(const unsigned row_3x3, const unsigned col_3x3){
+        return pt(row_3x3*27+col_3x3*3,[](unsigned i){return ((i%3 == 2) ? 7 : 1 );},*this);
+    }
+
+    inline pt ref_to_row(const unsigned row){
+        return pt(row*9,[](unsigned i){return 1;},*this);
+    }
+
+    inline pt ref_to_col(const unsigned col){
+        return pt(col,[](unsigned i){return 9;},*this);
     }
 
     numset cand_in_row(const unsigned idx){
@@ -42,30 +95,18 @@ struct sudoku_cell{
     numset cand_in_3x3(const unsigned idx){
         numset ret;
         ret.set();
-        const unsigned row_begin = idx_to_row(idx)/3*3;
-        const unsigned col_begin = idx_to_col(idx)/3*3;
-        for(unsigned i=row_begin;i<row_begin+3;++i){
-            for(unsigned j=col_begin;j<col_begin+3;++j){
-                if(cells[rc_to_idx(i,j)] != 0) ret.reset(cells[rc_to_idx(i,j)]-1);
-            }
+        const unsigned row_3x3 = idx_to_row(idx)/3;
+        const unsigned col_3x3 = idx_to_col(idx)/3;
+        auto ref = ref_to_3x3(row_3x3,col_3x3);
+        for(unsigned i=0;i<9;++i,++ref){
+            if(cells[ref.get_idx()] != 0) ret.reset(cells[ref.get_idx()]-1);
         }
-
         return ret;
     }
 
     inline unsigned num_of_onbit(const numset& e){ // return least canding number indicated in e
         for(unsigned i=0;i<9;++i) if(e[i]) return i+1;
         return 0; // unreachable
-    }
-
-    void solve(){
-        gen_cands();
-        BEGIN:
-            if(reduce_nearby_pair())    goto BEGIN;
-            if(solve_3x3())             goto BEGIN;
-	    if(solve_row())		goto BEGIN;
-	    if(solve_col())		goto BEGIN;
-            if(solve_one_cand())        goto BEGIN;
     }
 
     bool solve_one_cand(){
@@ -84,76 +125,54 @@ struct sudoku_cell{
     }
 
     bool solve_3x3(){
-    	// solve cells in 3x3 block
         bool changed = false;
         for(unsigned i=0;i<3;++i){
             for(unsigned j=0;j<3;++j){
-                if(solve_each_3x3(i,j)) changed = true;
+                if(solve_each_scope(ref_to_3x3(i,j))) changed = true;
             }
-        }
-        return changed;
-    }
-
-    bool solve_each_3x3(const unsigned row_3x3, const unsigned col_3x3){
-        bool changed = false;
-        for(unsigned i=0;i<9;++i){
-            bool found = false;
-            unsigned idx = 0;
-            for(unsigned j=3*row_3x3;j<3*row_3x3+3;++j){
-                for(unsigned k=3*col_3x3;k<3*col_3x3+3;++k){
-                    auto idx_ = rc_to_idx(j,k);
-                    if(cands[idx_][i]){
-                        if(found) goto LEND;
-                        found = true;
-                        idx = idx_;
-                    }
-                }
-            }
-            if(cells[idx] == 0 && found){
-                cells[idx] = i+1;
-		rebuild_cand(idx);
-                changed = true;
-            }
-            LEND: ;
         }
         return changed;
     }
 
     bool solve_row(){
-	//solve cells in 3x3 block
-	bool changed = false;
-	for(unsigned i=0;i<9;++i){
-	    if(solve_each_row(i)) changed = true;
-	}
-	return changed;
-    }
-
-    bool solve_each_row(const unsigned row){
         bool changed = false;
         for(unsigned i=0;i<9;++i){
+            if(solve_each_scope(ref_to_row(i))) changed = true;
+        }
+        return changed;
+    }
+
+    bool solve_col(){
+        bool changed = false;
+        for(unsigned i=0;i<9;++i){
+            if(solve_each_scope(ref_to_col(i))) changed = true;
+        }
+        return changed;
+    }
+
+    bool solve_each_scope(const pt& ref){
+        bool changed = false;
+        for(unsigned i=0;i<9;++i){
+            auto ref_c = ref;
             bool found = false;
             unsigned idx = 0;
-            for(unsigned j=0;j<27;++j){
-		if(cands[rc_to_idx(row,j)][i]){
-		    if(found){
-			found = false;
-			break;
-		    }
-		    else{
-			found = true;
-			idx = rc_to_idx(row,j);
-		    }
-		}
+            for(unsigned j=0;j<9; ++j,++ref_c){
+                auto idx_ = ref_c.get_idx();
+                if(cands[idx_][i]){
+                    if(found) goto LEND;
+                    found = true;
+                    idx = idx_;
+                }
             }
             if(cells[idx] == 0 && found){
                 cells[idx] = i+1;
                 rebuild_cand(idx);
                 changed = true;
             }
+            LEND: ;
         }
         return changed;
     }
-
 
     bool reduce_nearby_pair(){
         bool changed = false;
@@ -163,43 +182,7 @@ struct sudoku_cell{
             }
         }
         return changed;
-    }    
-    
-    bool solve_col(){
-	//solve cells in 3x3 block
-	bool changed = false;
-	for(unsigned i=0;i<9;++i){
-	    if(solve_each_col(i)) changed = true;
-	}
-	return changed;
     }
-
-    bool solve_each_col(const unsigned col){
-        bool changed = false;
-        for(unsigned i=0;i<9;++i){
-            bool found = false;
-            unsigned idx = 0;
-            for(unsigned j=0;j<27;++j){
-		if(cands[rc_to_idx(j,col)][i]){
-		    if(found){
-			found = false;
-			break;
-		    }
-		    else{
-			found = true;
-			idx = rc_to_idx(j,col);
-		    }
-		}
-            }
-            if(cells[idx] == 0 && found){
-                cells[idx] = i+1;
-                rebuild_cand(idx);
-                changed = true;
-            }
-        }
-        return changed;
-    }
-
 
     bool reduce_nearby_pair_3x3(const unsigned row_3x3, const unsigned col_3x3){
         bool changed = false;
@@ -267,17 +250,15 @@ struct sudoku_cell{
         const unsigned val = cells[idx];
         const unsigned row = idx_to_row(idx);
         const unsigned col = idx_to_col(idx);
-        const unsigned row_begin = row/3*3;
-        const unsigned col_begin = col/3*3;
+        auto ref_row = ref_to_row(row);
+        auto ref_col = ref_to_col(col);
+        auto ref_3x3 = ref_to_3x3(row/3,col/3);
+
         cands[idx].reset();
         for(unsigned i=0;i<9;++i){
-            cands[rc_to_idx(row,i)].reset(val-1);
-            cands[rc_to_idx(i,col)].reset(val-1);
-        }
-        for(unsigned i=row_begin;i<row_begin+3;++i){
-            for(unsigned j=col_begin;j<col_begin+3;++j){
-                cands[rc_to_idx(i,j)].reset(val-1);
-            }
+            cands[ref_row++.get_idx()].reset(val-1);
+            cands[ref_col++.get_idx()].reset(val-1);
+            cands[ref_3x3++.get_idx()].reset(val-1);
         }
     }
 
