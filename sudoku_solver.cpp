@@ -24,12 +24,12 @@ class sudoku_cell{
         using self=pt;
         public:
         template <typename T>
-        pt(unsigned offset, T func, const sudoku_cell& s):idx(offset),inc_val_func(func),ref(s){}
+        pt(unsigned offset, T handler, const sudoku_cell& s):idx(offset),val_handler(handler),ref(s){}
 
         unsigned get_idx(){return idx;}
 
         self& operator++(){
-            idx += inc_val_func(idx);
+            idx += val_handler(idx);
             return *this;
         }
 
@@ -40,7 +40,7 @@ class sudoku_cell{
         }
         protected:
         unsigned idx;
-        const std::function<unsigned(unsigned)> inc_val_func;
+        const std::function<unsigned(unsigned)> val_handler;
         const sudoku_cell& ref;
     };
 
